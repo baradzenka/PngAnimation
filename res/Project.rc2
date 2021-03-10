@@ -1,0 +1,23 @@
+//
+
+#ifdef APSTUDIO_INVOKED
+#error this file is not editable by Microsoft Visual C++
+#endif //APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+// PNG
+//
+
+IDB_PNG1                PNG                  "res/Process1.png"
+IDB_PNG2                PNG                  "res/Process2.png"
+IDB_PNG3                PNG                  "res/Process3.png"
+IDB_PNG4                PNG                  "res/Process4.png"
+IDB_PNG5                PNG                  "res/Process5.png"
+IDB_PNG6                PNG                  "res/Process6.png"
+IDB_PNG7                PNG                  "res/Process7.png"
+IDB_PNG8                PNG                  "res/Process8.png"
+IDB_PNG9                PNG                  "res/Process9.png"
+
+
+/////////////////////////////////////////////////////////////////////////////
