@@ -120,7 +120,9 @@ private:
 								{	*bmp = ::new (std::nothrow) Gdiplus::Bitmap(pStream,FALSE);
 									pStream->Release();
 								}
+								::GlobalUnlock(lpResBuffer);
 							}
+							::GlobalFree(hRes);
 						}
 						::UnlockResource(hGlobal);
 					}
