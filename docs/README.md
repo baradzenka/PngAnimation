@@ -30,6 +30,6 @@ The `PngAnimation` object works with *png* files. It is created once, for exampl
 
 Also, a color is passed to the `Start` function, which is used to fill the frame area before drawing it.
 
-The PngAnimation object does not use MFC and can be used in a regular Win32 API application.
+The `PngAnimation` object does not use MFC and can be used in a regular Win32 API application.
 
 Good luck! :-)
