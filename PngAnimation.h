@@ -176,7 +176,6 @@ private:
 			}
 			else
 				m_dcSrc = dcDst;
-			::SetBkMode(m_dcSrc,TRANSPARENT);
 		}
 		~VirtualWindow()
 		{	Release();
