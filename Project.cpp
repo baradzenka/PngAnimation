@@ -31,13 +31,6 @@ BOOL App::InitInstance()
 
 	CWinApp::InitInstance();
 
-	// Initialize OLE libraries
-	if (!AfxOleInit())
-	{
-		AfxMessageBox(IDP_OLE_INIT_FAILED);
-		return FALSE;
-	}
-	AfxEnableControlContainer();
 	// Standard initialization
 	// If you are not using these features and wish to reduce the size
 	// of your final executable, you should remove from the following

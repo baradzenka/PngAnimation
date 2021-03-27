@@ -4,7 +4,7 @@
 
 ## Introduction
 
-Often the program needs to show that it is currently performing some action. For example, a project is being loaded, a device is being searched for, data is being converted or new data is being generated. In such cases, animation is used. One of the easiest ways to do this is to draw a graphic file that looks like this:
+Often the program needs to show that it is currently performing some action. For example, a project is being loaded, a device is being searched, data is being converted or new data is being generated. In such cases, animation is used. One of the easiest ways to do this is to draw a graphic file that looks like this:
 
 ![Example](./process.png)
 
@@ -23,12 +23,13 @@ PngAnimation m_Anim;
    …
 if( !m_Anim.Create(NULL,IDB_PNG1,31) )
     return -1;   // error.
-m_Anim.Start(this, 50,50, ::GetSysColor(COLOR_WINDOW), 40,true);
+m_Anim.Start(m_hWnd, 50,50, ::GetSysColor(COLOR_WINDOW), 40,true);
 ````
 
 The `PngAnimation` object works with *png* files. It is created once, for example, when creating a window. Next, you only need to call the `Start` function. If you passed `false` as the last parameter of the `Start`, then after showing all parts of the *png* file, the animation will stop. To start it, you need to call the `Start` function again.
 
 Also, a color is passed to the `Start` function, which is used to fill the frame area before drawing it.
 
+The PngAnimation object does not use MFC and can be used in a regular Win32 API application.
 
 Good luck! :-)

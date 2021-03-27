@@ -10,6 +10,7 @@
 #include <mmsystem.h>
 #pragma comment (lib, "Winmm.lib")   // for Multimedia Timers.
 
+#include <new>
 #include <cassert>
 
 
@@ -19,42 +20,48 @@ struct PngAnimation
 // PUBLIC
 ///////////////////////////////////////
 	PngAnimation()
-	{	m_bmp = NULL;
+	{	m_pBmp = NULL;
 	}
 	~PngAnimation()
 	{	Destroy();
 	}
 		// 
-	bool Create(HMODULE moduleRes/*or null*/, UINT idPngRes, int numberFrame)
-	{	assert(numberFrame>1 && time>0);
+	bool Create(HMODULE moduleRes/*or null*/, unsigned int idPngRes, int numberFrame)
+	{	assert(numberFrame>1);
 			// 
 		Destroy();
-		if( !LoadImage(moduleRes,idPngRes,&m_bmp/*out*/) )
+		if( !LoadImage(moduleRes,idPngRes,&m_pBmp/*out*/) )
 			return false;
 			// 
 		m_iNumberFrame = numberFrame;
-		m_szFrame.SetSize(m_bmp->GetWidth()/numberFrame,m_bmp->GetHeight());
+		m_szFrame.cx = m_pBmp->GetWidth() / numberFrame;
+		m_szFrame.cy = m_pBmp->GetHeight();
 			// 
 		return true;
 	}
 	void Destroy()
 	{	m_Timer.KillTimer();
-		if(m_bmp)
-		{	::delete m_bmp;
-			m_bmp = NULL;
+		if(m_pBmp)
+		{	::delete m_pBmp;
+			m_pBmp = NULL;
 		}		
 	}
 	bool IsCreated() const
-	{	return m_bmp!=NULL;
+	{	return m_pBmp!=NULL;
 	}
 		// 
-	bool Start(CWnd *parent, int x, int y, COLORREF clrBack, int time/*ms*/, bool infinitely)
+	bool Start(HWND parent, int x, int y, COLORREF clrBack, int time/*ms*/, bool infinitely)
 	{	assert( IsCreated() );
-		assert(parent && ::IsWindow(parent->m_hWnd));
+		assert( ::IsWindow(parent) );
+		assert(time>0);
+			// 
+		if( !IsCreated() )
+			return false;
 			// 
 		m_Timer.KillTimer();
-		m_parentWnd = parent;
-		m_ptFrame.SetPoint(x,y);
+		m_hParentWnd = parent;
+		m_ptFrame.x = x;
+		m_ptFrame.y = y;
 		m_clrBack = clrBack;
 		m_iTime = time;
 		m_bInfinitely = infinitely;
@@ -70,38 +77,48 @@ struct PngAnimation
 	bool IsActive() const
 	{	return m_Timer.IsActive();
 	}
+		// 
+	RECT GetArea() const
+	{	const RECT rect = {m_ptFrame.x,m_ptFrame.y,m_ptFrame.x+m_szFrame.cx,m_ptFrame.y+m_szFrame.cy};
+		return rect;
+	}
 
 ///////////////////////////////////////
 // PRIVATE
 ///////////////////////////////////////
 private:
 	void OnTimer()   // callback from Timer object.
-	{	CClientDC dc(m_parentWnd);
-		VirtualWindow virtwnd(&dc, CRect(m_ptFrame,m_szFrame) );
-			// 
-			// Background filling.
-		CBrush brush(m_clrBack);
-		CRect rcFill(0,0,m_szFrame.cx,m_szFrame.cy);
-		if(virtwnd.m_hDC==dc.m_hDC)   // error creating VirtualWindow.
-			rcFill.OffsetRect(m_ptFrame);
-		virtwnd.FillRect(&rcFill,&brush);
-			// Frame rendering.
-		Gdiplus::Graphics gr(virtwnd.m_hDC);
-		gr.DrawImage(m_bmp,rcFill.left,rcFill.top,m_szFrame.cx*m_iCurFrame,0,m_szFrame.cx,m_szFrame.cy,Gdiplus::UnitPixel);
-			// 
-		if(++m_iCurFrame == m_iNumberFrame)
-		{	m_iCurFrame = 0;
-			if(!m_bInfinitely)
-				m_Timer.KillTimer();
+	{	HDC hDC = ::GetDC(m_hParentWnd);
+		if(hDC)
+		{	VirtualWindow virtwnd(hDC,m_ptFrame,m_szFrame);
+				// 
+				// Background filling.
+			RECT rcFill = {0,0,m_szFrame.cx,m_szFrame.cy};
+			if(virtwnd==hDC)   // VirtualWindow wasn't created.
+				::OffsetRect(&rcFill,m_ptFrame.x,m_ptFrame.y);
+			HBRUSH brush = ::CreateSolidBrush(m_clrBack);
+			::FillRect(virtwnd,&rcFill,brush);
+			::DeleteObject(brush);
+				// Frame rendering.
+			Gdiplus::Graphics gr(virtwnd);
+			gr.DrawImage(m_pBmp,rcFill.left,rcFill.top,m_szFrame.cx*m_iCurFrame,0,m_szFrame.cx,m_szFrame.cy,Gdiplus::UnitPixel);
+				// 
+			if(++m_iCurFrame == m_iNumberFrame)
+			{	m_iCurFrame = 0;
+				if(!m_bInfinitely)
+					m_Timer.KillTimer();
+			}
+			virtwnd.Release();   // show frame.
+			::ReleaseDC(m_hParentWnd,hDC);
 		}
 	}
 
 private:
-	bool LoadImage(HMODULE moduleRes/*or null*/, UINT resID, Gdiplus::Bitmap **bmp/*out*/) const
+	bool LoadImage(HMODULE moduleRes/*or null*/, unsigned int resID, Gdiplus::Bitmap **bmp/*out*/) const
 	{	assert(resID);
 			// 
 		if(!moduleRes)
-			moduleRes = AfxFindResourceHandle(MAKEINTRESOURCE(resID),_T("PNG"));
+			moduleRes = ::GetModuleHandle(NULL);
 		if(moduleRes)
 		{	HRSRC hRsrc = ::FindResource(moduleRes,MAKEINTRESOURCE(resID),_T("PNG"));
 			if(hRsrc)
@@ -109,7 +126,7 @@ private:
 				if(hGlobal)
 				{	const void *lpBuffer = ::LockResource(hGlobal);
 					if(lpBuffer)
-					{	const UINT uiSize = static_cast<UINT>( ::SizeofResource(moduleRes,hRsrc) );
+					{	const unsigned int uiSize = static_cast<unsigned int>( ::SizeofResource(moduleRes,hRsrc) );
 						HGLOBAL hRes = ::GlobalAlloc(GMEM_MOVEABLE, uiSize);
 						if(hRes)
 						{	void *lpResBuffer = ::GlobalLock(hRes);
@@ -124,7 +141,7 @@ private:
 							}
 							::GlobalFree(hRes);
 						}
-						::UnlockResource(hGlobal);
+						UnlockResource(hGlobal);
 					}
 					::FreeResource(hGlobal);
 				}
@@ -138,40 +155,57 @@ private:
 	}
 
 private:
-	struct VirtualWindow : CDC
-	{	VirtualWindow(CDC *dcDst, CRect const &rcDst)
-		{	assert(dcDst && dcDst->m_hDC);
-			assert(rcDst);
+	struct VirtualWindow
+	{	VirtualWindow(HDC dcDst, POINT ptDst, SIZE szDst)
+		{	assert(dcDst);
 				// 
-			if(CreateCompatibleDC(dcDst) && m_bmpSrc.CreateCompatibleBitmap(dcDst,rcDst.Width(),rcDst.Height()))
-			{	SelectObject(&m_bmpSrc);
-				m_pDcDst = dcDst;
-				m_rcDst = rcDst;
+			m_bmpSrc = NULL;
+			m_dcSrc = ::CreateCompatibleDC(dcDst);
+			if(m_dcSrc)
+			{	m_bmpSrc = ::CreateCompatibleBitmap(dcDst,szDst.cx,szDst.cy);
+				if(!m_bmpSrc)
+				{	::DeleteDC(m_dcSrc);
+					m_dcSrc = dcDst;
+				}
+				else
+				{	::SelectObject(m_dcSrc,m_bmpSrc);
+					m_dcDst = dcDst;
+					m_ptDst = ptDst;
+					m_szDst = szDst;
+				}
 			}
 			else
-			{	if(m_hDC)
-					DeleteDC();
-				Attach(dcDst->m_hDC);
-			}
-			SetBkMode(TRANSPARENT);
+				m_dcSrc = dcDst;
+			::SetBkMode(m_dcSrc,TRANSPARENT);
 		}
 		~VirtualWindow()
-		{	if(m_bmpSrc.m_hObject)
-				m_pDcDst->BitBlt(m_rcDst.left,m_rcDst.top,m_rcDst.Width(),m_rcDst.Height(),this,0,0,SRCCOPY);
-			else
-				Detach();
+		{	Release();
+		}
+			// 
+		operator HDC() const
+		{	return m_dcSrc;
+		}
+		void Release()
+		{	if(m_bmpSrc)
+			{	::BitBlt(m_dcDst,m_ptDst.x,m_ptDst.y,m_szDst.cx,m_szDst.cy,m_dcSrc,0,0,SRCCOPY);
+				::DeleteObject(m_bmpSrc);
+				::DeleteDC(m_dcSrc);
+				m_bmpSrc = NULL;
+			}
 		}
 
 	private:
-		CDC *m_pDcDst;
-		CRect m_rcDst;
-		CBitmap m_bmpSrc;
+		HDC m_dcSrc, m_dcDst;
+		POINT m_ptDst;
+		SIZE m_szDst;
+		HBITMAP m_bmpSrc;
 	};
 
 private:
-	struct Timer : private CWnd
+	struct Timer
 	{	Timer()
-		{	m_uTimerID = 0;
+		{	m_hTimerWnd = NULL;
+			m_uTimerID = 0;
 		}
 		~Timer()
 		{	KillTimer();
@@ -181,8 +215,8 @@ private:
 		{	m_pNotifyObj = obj;
 			m_pNotifyFunc = func;
 				// 
-			if( !CWnd::CreateEx(0, AfxRegisterWndClass(0), NULL,WS_POPUP,0,0,0,0,NULL,0) ||
-				(m_uTimerID = ::timeSetEvent(time,0,TimeProc,reinterpret_cast<DWORD_PTR>(m_hWnd),TIME_PERIODIC))==0)
+			if( (m_hTimerWnd = CreateTimerWindow())==NULL ||
+				(m_uTimerID = ::timeSetEvent(time,0,TimerProc,reinterpret_cast<DWORD_PTR>(this),TIME_PERIODIC))==0)
 			{
 				KillTimer();
 				return false;
@@ -194,39 +228,60 @@ private:
 			{	::timeKillEvent(m_uTimerID);
 				m_uTimerID = 0;
 			}
-			if(m_hWnd)
-				DestroyWindow();
+			if(m_hTimerWnd)
+			{	::DestroyWindow(m_hTimerWnd);
+				m_hTimerWnd = NULL;
+			}
 		}
 			// 
 		bool IsActive() const
-		{	return m_hWnd!=NULL;
+		{	return m_hTimerWnd!=NULL;
 		}
 
 	protected:
 		PngAnimation *m_pNotifyObj;
 		void(PngAnimation::*m_pNotifyFunc)();
-		UINT m_uTimerID;
+		HWND m_hTimerWnd;
+		unsigned int m_uTimerID;
 
 	protected:
-		static void CALLBACK TimeProc(UINT /*uID*/, UINT /*uMsg*/, DWORD_PTR dwUser, DWORD_PTR /*dw1*/, DWORD_PTR /*dw2*/)
-		{	::SendMessage(reinterpret_cast<HWND>(dwUser),WM_USER,0,0);
+		static void __stdcall TimerProc(unsigned int /*uID*/, unsigned int /*uMsg*/, DWORD_PTR dwUser, DWORD_PTR /*dw1*/, DWORD_PTR /*dw2*/)
+		{	Timer const *timer = reinterpret_cast<Timer const *>(dwUser);
+			::SendMessage(timer->m_hTimerWnd,WM_USER,dwUser,0);
 		}
 			// 
-		virtual LRESULT WindowProc(UINT message, WPARAM wParam, LPARAM lParam)
-		{	const LRESULT res = CWnd::WindowProc(message,wParam,lParam);
-			if(message==WM_USER)
-				(m_pNotifyObj->*m_pNotifyFunc)();
+		HWND CreateTimerWindow() const
+		{	const TCHAR className[] = _T("{77E7379C-051F-43F7-8B17-D73117493DBD}");
+			HMODULE module = ::GetModuleHandle(NULL);
+			WNDCLASS wc;
+			memset(&wc,0,sizeof(wc));
+			if(::GetClassInfo(module,className,&wc/*out*/)==0)
+			{	wc.lpfnWndProc = WindowProc;
+				wc.hInstance = module;
+				wc.lpszClassName = className;
+				if(::RegisterClass(&wc)==0)
+					return NULL;
+			}
+			return ::CreateWindowEx(0,className,_T(""),WS_POPUP,0,0,0,0,NULL,NULL,module,NULL);
+		}
+			// 
+		static LRESULT __stdcall WindowProc(HWND hwnd, unsigned int uMsg, WPARAM wParam, LPARAM lParam)
+		{	const LRESULT res = ::DefWindowProc(hwnd, uMsg, wParam, lParam);
+			if(uMsg==WM_USER)
+			{	Timer *timer = reinterpret_cast<Timer *>(wParam);
+				(timer->m_pNotifyObj->*timer->m_pNotifyFunc)();
+			}
 			return res;
 		}
 	};
 
 private:
-	Gdiplus::Bitmap *m_bmp;
+	Gdiplus::Bitmap *m_pBmp;
 	Timer m_Timer;
-	CWnd *m_parentWnd;
+	HWND m_hParentWnd;
 	int m_iCurFrame,m_iNumberFrame, m_iTime;
-	CPoint m_ptFrame;
-	CSize m_szFrame;
+	POINT m_ptFrame;
+	SIZE m_szFrame;
 	COLORREF m_clrBack;
 	bool m_bInfinitely;
 };
