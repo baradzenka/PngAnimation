@@ -28,7 +28,7 @@ m_Anim.Start(m_hWnd, 50,50, ::GetSysColor(COLOR_WINDOW), 40,true);
 
 The `PngAnimation` object works with *png* files. It is created once, for example, when creating a window. Next, you only need to call the `Start` function. If you passed `false` as the last parameter of the `Start`, then after showing all parts of the *png* file, the animation will stop. To start it, you need to call the `Start` function again.
 
-Also, a color is passed to the `Start` function, which is used to fill the frame area before drawing it.
+Also, a color is passed to the `Start` function, which is used to fill the area occupied by the `PngAnimation` before drawing it.
 
 The `PngAnimation` object does not use MFC and can be used in a regular Win32 API application.
 
