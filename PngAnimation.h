@@ -149,6 +149,7 @@ private:
 		}
 		if(*bmp && (*bmp)->GetLastStatus()!=Gdiplus::Ok)
 		{	::delete *bmp;
+			*bmp = NULL;
 			return false;
 		}
 		return (*bmp)!=NULL;
